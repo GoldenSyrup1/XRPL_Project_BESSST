@@ -35,8 +35,7 @@ class XRPAccount():
             response = submit_and_wait(payment, client, self.wallet)
         except xrpl.transaction.XRPLReliableSubmissionException as e:
             response = f"Submit failed: {e}"
-        print(response.result)
-        print(f"Congratulations. {self.username} has sent {xrp_amount} to {recieving_wallet.username}")
+
         return response
     def get_account_balance(self):
         acct_info_request = AccountInfo(
@@ -48,7 +47,7 @@ class XRPAccount():
         response = client.request(acct_info_request)
         balance_drops = response.result['account_data']['Balance']
 
-        balance_xrp = int(balance_drops) / 1000000
+        balance_xrp = balance_drops / 1000000
         return balance_xrp
 
 
