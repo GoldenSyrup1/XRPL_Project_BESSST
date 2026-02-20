@@ -2,12 +2,11 @@ import xrpl
 from xrpl.clients import JsonRpcClient
 from xrpl.core.keypairs import generate_seed, derive_keypair
 from xrpl.account import get_balance
-from xrpl.wallet import Wallet
-
-from xrpl.wallet import generate_faucet_wallet
+from xrpl.wallet import Wallet, generate_faucet_wallet
 from xrpl.transaction import submit_and_wait
 from xrpl.models import Payment, Tx
-from xrpl.models.requests import AccountInfo
+from xrpl.models.requests import AccountInfo, AccountLines
+
 from xrpl.utils import xrp_to_drops
 from xrpl.models.transactions import TrustSet
 from xrpl.models.amounts import IssuedCurrencyAmount
@@ -58,26 +57,49 @@ class XRPAccount():
         response = client.request(acct_info_request)
         balance_drops = response.result['account_data']['Balance']
 
-        balance_xrp = balance_drops / 1000000
+        balance_xrp = int(balance_drops) / 1000000
         return balance_xrp
-    def create_TrustSet(self, currency_type, value, recipient):
+    def create_TrustSet(self, currency_code, value, recipient):
         trust_set_tx = TrustSet(
             account=self.address,
             limit_amount=IssuedCurrencyAmount(
-                currency=currency_type,
+                currency=currency_code,
                 issuer=recipient.address,
-                value=value  # I am willing to hold up to value [currency type]
+                value=value  # I am willing to hold up to value [currency code]
             )
         )
-        response = submit_and_wait(trust_set_tx, client, recipient.address)
+        response = submit_and_wait(trust_set_tx, client, self.wallet)
+        if response.is_successful():
+            print(f"Success! Your wallet can now hold {currency_code}.")
+        else:
+            print("Something went wrong.")
         print(f"Transaction Result: {response.result['meta']['TransactionResult']}")
+    def check_TrustSet(self):
+        request = AccountLines(
+            account=self.address,
+            ledger_index="validated"
+        )
 
+        response = client.request(request)
+
+        # 2. Get the list of lines (this contains currency, issuer, balance, etc.)
+        all_lines = response.result.get("lines", [])
+        if not all_lines:
+            print("You have no trust lines. Your wallet is 'clean'.")
+        else:
+            print(f"You have {len(all_lines)} trust line(s) active.")
+            for line in all_lines:
+                print(f"- {line['currency']} from issuer {line['account']}")
+
+
+# standard account will always have 100 xrp
 
 acct1 = XRPAccount("Joe Biden")
 acct2 = XRPAccount("Obama69")
 print(acct1.get_account_balance())
 print(acct2.get_account_balance())
 acct1.send_xrp(5, acct2)
+acct2.create_TrustSet("AUD", 1000, acct1)
 print(acct1.get_account_balance())
 print(acct2.get_account_balance())
 
