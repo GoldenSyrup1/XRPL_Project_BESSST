@@ -8,8 +8,9 @@ from xrpl.models import Payment, Tx
 from xrpl.models.requests import AccountInfo, AccountLines
 
 from xrpl.utils import xrp_to_drops
-from xrpl.models.transactions import TrustSet
+from xrpl.models.transactions import TrustSet, OfferCreate
 from xrpl.models.amounts import IssuedCurrencyAmount
+
 
 # Connecting to TestNet
 client = JsonRpcClient("https://s.altnet.rippletest.net:51234")
@@ -73,7 +74,6 @@ class XRPAccount():
             print(f"Success! Your wallet can now hold {currency_code}.")
         else:
             print("Something went wrong.")
-        print(f"Transaction Result: {response.result['meta']['TransactionResult']}")
     def check_TrustSet(self):
         request = AccountLines(
             account=self.address,
@@ -91,6 +91,173 @@ class XRPAccount():
             for line in all_lines:
                 print(f"- {line['currency']} from issuer {line['account']}")
 
+    def send_token(self, currency_code, amount, recipient):
+            payment = Payment(
+                account=self.address,
+                destination=recipient.address,
+                amount=IssuedCurrencyAmount(
+                    currency=currency_code,
+                    issuer=self.address,
+                    value=str(amount)
+                )
+            )
+
+            submit_and_wait(payment, client, self.wallet)
+
+    def create_offer_buy_xrp(self, aud_amount, xrp_amount, issuer_wallet):
+            offer = OfferCreate(
+                account=self.address,
+
+                taker_pays=IssuedCurrencyAmount(
+                    currency="AUD",
+                    issuer=issuer_wallet.address,
+                    value=str(aud_amount)
+                ),
+
+                taker_gets=xrp_to_drops(xrp_amount)
+            )
+
+            response = submit_and_wait(offer, client, self.wallet)
+
+            if response.is_successful():
+                print("Offer successfully placed on DEX.")
+            else:
+                print("Offer failed.")
+
+    def create_offer_sell_xrp(self, xrp_amount, aud_amount, issuer_wallet):
+        offer = OfferCreate(
+            account=self.address,
+
+            taker_pays=xrp_to_drops(xrp_amount),
+
+            taker_gets=IssuedCurrencyAmount(
+                currency="AUD",
+                issuer=issuer_wallet.address,
+                value=str(aud_amount)
+            )
+        )
+
+        response = submit_and_wait(offer, client, self.wallet)
+
+        if response.is_successful():
+            print("Sell offer successfully placed.")
+        else:
+            print("Offer failed.")
+
+    def build_amount(self, currency, value, issuer=None):
+
+            # Returns correct XRPL amount format depending on XRP or token
+
+
+            if currency.upper() == "XRP":
+                return xrp_to_drops(value)
+
+            return IssuedCurrencyAmount(
+                currency=currency,
+                issuer=issuer.address,
+                value=str(value)
+            )
+
+    def can_hold_currency(self, currency, issuer):
+            if currency.upper() == "XRP":
+                return True
+
+            request = AccountLines(
+                account=self.address,
+                ledger_index="validated"
+            )
+
+            response = client.request(request)
+            lines = response.result.get("lines", [])
+
+            for line in lines:
+                if line["currency"] == currency and line["account"] == issuer.address:
+                    return True
+
+            return False
+
+    def get_token_balance(self, currency, issuer=None):
+
+        if currency.upper() == "XRP":
+            return self.get_account_balance()
+
+        request = AccountLines(
+            account=self.address,
+            ledger_index="validated"
+        )
+
+        response = client.request(request)
+
+        for line in response.result.get("lines", []):
+            if line["currency"] == currency and line["account"] == issuer.address:
+                return float(line["balance"])
+
+        return 0.0
+
+    def create_offer(
+            self,
+            pay_currency,
+            pay_amount,
+            get_currency,
+            get_amount,
+            pay_issuer=None,
+            get_issuer=None
+    ):
+
+        # Check holding permissions
+        if not self.can_hold_currency(get_currency, get_issuer):
+            print(f"You cannot hold {get_currency}. Create trust line first.")
+            return
+
+        # Check balance
+        balance = self.get_token_balance(pay_currency, pay_issuer)
+
+        if balance < pay_amount:
+            print(f"Insufficient balance. You have {balance} {pay_currency}")
+            return
+
+        taker_pays = self.build_amount(pay_currency, pay_amount, pay_issuer)
+        taker_gets = self.build_amount(get_currency, get_amount, get_issuer)
+
+        offer = OfferCreate(
+            account=self.address,
+            taker_pays=taker_pays,
+            taker_gets=taker_gets
+        )
+
+        response = submit_and_wait(offer, client, self.wallet)
+
+        if response.is_successful():
+            print(f"Offer created: Pay {pay_amount} {pay_currency} "
+                  f"to get {get_amount} {get_currency}")
+        else:
+            print("Offer failed")
+
+    def get_all_holdings(self):
+
+        holdings = {"XRP": self.get_account_balance()}
+
+        request = AccountLines(
+            account=self.address,
+            ledger_index="validated"
+        )
+
+        response = client.request(request)
+
+        for line in response.result.get("lines", []):
+            currency = line["currency"]
+            balance = float(line["balance"])
+            issuer = line["account"]
+
+            holdings[f"{currency}:{issuer}"] = balance
+
+        return holdings
+    def print_all_holdings(self):
+        holdings = self.get_all_holdings()
+
+        print("You can sell:")
+        for asset, balance in holdings.items():
+            print(asset, balance)
 
 # standard account will always have 100 xrp
 
@@ -100,8 +267,17 @@ print(acct1.get_account_balance())
 print(acct2.get_account_balance())
 acct1.send_xrp(5, acct2)
 acct2.create_TrustSet("AUD", 1000, acct1)
+acct2.check_TrustSet()
 print(acct1.get_account_balance())
 print(acct2.get_account_balance())
+
+acct2.create_offer(
+    pay_currency="XRP",
+    pay_amount=50,
+    get_currency="AUD",
+    get_amount=100,
+    get_issuer=acct1
+)
 
 
 
