@@ -1,0 +1,11 @@
+Wallet → signs transactions
+Client → connects to XRPL node
+Transaction → changes ledger state
+Ledger → global blockchain state
+Account → ledger entity holding XRP, tokens, NFTs
+TrustLine → relationship allowing token holding
+Offer → DEX trade order
+AMM → liquidity pool
+NFToken → NFT object
+Escrow → locked funds object
+PaymentChannel → streaming payment object
