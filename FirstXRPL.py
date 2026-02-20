@@ -12,7 +12,9 @@ client = JsonRpcClient("https://s.altnet.rippletest.net:51234")
 
 class WalletAccount():
     def __init__(self):
-        self.seed = generate_seed()
+        seed = generate_seed()
+        self.wallet = Wallet.from_seed(seed)
+
 
 
 
