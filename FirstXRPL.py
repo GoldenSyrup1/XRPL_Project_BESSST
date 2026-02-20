@@ -4,7 +4,7 @@ from xrpl.core.keypairs import generate_seed, derive_keypair
 from xrpl.account import get_balance
 from xrpl.wallet import Wallet
 from xrpl.wallet import generate_faucet_wallet
-from xrpl.transaction import autofill_and_sign, submit_and_wait
+from xrpl.transaction import submit_and_wait
 from xrpl.models.transactions import Payment
 from xrpl.utils import xrp_to_drops
 
@@ -26,7 +26,7 @@ class XRPAccount():
             destination=recieving_wallet.address,
         )
         try:
-            response = xrpl.transaction.submit_and_wait(payment, client, self.wallet)
+            response = submit_and_wait(payment, client, self.wallet)
         except xrpl.transaction.XRPLReliableSubmissionException as e:
             response = f"Submit failed: {e}"
         return response
