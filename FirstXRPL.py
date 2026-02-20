@@ -12,7 +12,8 @@ from xrpl.utils import xrp_to_drops
 client = JsonRpcClient("https://s.altnet.rippletest.net:51234")
 
 class XRPAccount():
-    def __init__(self):
+    def __init__(self, username):
+        self.username = username
         self.wallet = Wallet.create()
         self.address = self.wallet.classic_address
         self.seed = self.wallet.seed
@@ -20,6 +21,9 @@ class XRPAccount():
         self.public_key = self.wallet.public_key
         self.xrp_amount = get_balance(self.address, client) / 1,000,000
     def send_xrp(self, xrp_amount, recieving_wallet):
+        if xrp_amount > self.xrp_amount:
+            return ("Sorry. You are sending more XRP than you have in your wallet. If you wish" +
+                    " to send XRP")
         payment = xrpl.models.transactions.Payment(
             account=self.address,
             amount=xrpl.utils.xrp_to_drops(int(xrp_amount)),
