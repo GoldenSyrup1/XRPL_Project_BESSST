@@ -8,7 +8,8 @@ from xrpl.models import Payment, Tx
 from xrpl.models.requests import AccountInfo, AccountLines
 
 from xrpl.utils import xrp_to_drops
-from xrpl.models.transactions import TrustSet, OfferCreate, AccountSet, AccountSetFlag, DepositPreauth, TrustSetFlag
+from xrpl.models.transactions import TrustSet, OfferCreate, AccountSet, DepositPreauth, TrustSetFlag
+from xrpl.models.transactions.account_set import AccountSetAsfFlag
 from xrpl.models.amounts import IssuedCurrencyAmount
 
 
@@ -21,231 +22,76 @@ class XRPAccount():
         self.username = username
         self.wallet = Wallet.create()
         self.address = self.wallet.classic_address
-        self.seed = self.wallet.seed
-        self.private_key = self.wallet.private_key
-        self.public_key = self.wallet.public_key
-        generate_faucet_wallet(client = client, wallet = self.wallet)
 
-    def send_xrp(self, xrp_amount, recieving_wallet):
-        if float(xrp_amount) > float(recieving_wallet.get_account_balance()):
-            return ("Sorry. You are sending more XRP than you have in your wallet. If you wish" +
-                    " to send XRP, try lowering the amount.")
-        payment = Payment(
+        # Fund account with 100 Test XRP
+        generate_faucet_wallet(client=client, wallet=self.wallet)
+
+    def get_xrp_balance(self):
+        request = AccountInfo(
             account=self.address,
-            amount=xrpl.utils.xrp_to_drops(float(xrp_amount)),
-            destination=recieving_wallet.address,
-        )
-        try:
-            payment_response = submit_and_wait(payment, client, self.wallet)
-            print("Transaction was submitted.")
-
-            # Create a "Tx" request to look up the transaction on the ledger
-            tx_response = client.request(Tx(transaction=payment_response.result["hash"]))
-
-            # Check whether the transaction was actually validated on ledger
-            print("Validated:", tx_response.result["validated"])
-        except xrpl.transaction.XRPLReliableSubmissionException as e:
-            return f"Submit failed: {e}"
-
-
-
-    def get_account_balance(self):
-        acct_info_request = AccountInfo(
-            account=self.wallet.classic_address,
-            ledger_index="validated",
+            ledger_index="validated"
         )
 
-        # Send the request and get the response
-        response = client.request(acct_info_request)
-        balance_drops = response.result['account_data']['Balance']
+        response = client.request(request)
+        drops = response.result["account_data"]["Balance"]
 
-        balance_xrp = int(balance_drops) / 1000000
-        return balance_xrp
+        return int(drops) / 1_000_000
 
-    def enable_require_auth(self):
-        tx = AccountSet(
+    def send_xrp(self, amount, destination):
+
+        tx = Payment(
             account=self.address,
-            set_flag=AccountSetFlag.ASF_REQUIRE_AUTH
+            destination=destination.address,
+            amount=xrp_to_drops(amount)
         )
 
         response = submit_and_wait(tx, client, self.wallet)
 
         if response.is_successful():
-            print(f"{self.username}: RequireAuth enabled.")
+            print(f"{self.username} sent {amount} XRP to {destination.username}")
         else:
-            print("Failed to enable RequireAuth.")
+            print("XRP send failed")
 
-    def authorize_trustline(self, currency_code, holder_account):
+
+    def create_trustline(self, currency, issuer, limit):
+
         tx = TrustSet(
             account=self.address,
             limit_amount=IssuedCurrencyAmount(
-                currency=currency_code,
-                issuer=holder_account.address,
-                value="0"
-            ),
-            flags=TrustSetFlag.TF_SET_AUTH
-        )
-
-        response = submit_and_wait(tx, client, self.wallet)
-
-        if response.is_successful():
-            print(f"{holder_account.username} authorized to hold {currency_code}")
-        else:
-            print("Authorization failed")
-    def create_TrustSet(self, currency_code, value, recipient):
-        trust_set_tx = TrustSet(
-            account=self.address,
-            limit_amount=IssuedCurrencyAmount(
-                currency=currency_code,
-                issuer=recipient.address,
-                value=value  # I am willing to hold up to value [currency code]
-            )
-        )
-        response = submit_and_wait(trust_set_tx, client, self.wallet)
-        if response.is_successful():
-            print(f"Success! Your wallet can now hold {currency_code}.")
-        else:
-            print("Something went wrong.")
-    def check_TrustSet(self):
-        request = AccountLines(
-            account=self.address,
-            ledger_index="validated"
-        )
-
-        response = client.request(request)
-
-        # 2. Get the list of lines (this contains currency, issuer, balance, etc.)
-        all_lines = response.result.get("lines", [])
-        if not all_lines:
-            print("You have no trust lines. Your wallet is 'clean'.")
-        else:
-            print(f"You have {len(all_lines)} trust line(s) active.")
-            for line in all_lines:
-                print(f"- {line['currency']} from issuer {line['account']}")
-
-    def send_token(self, currency_code, amount, recipient):
-        if not recipient.can_hold_currency(currency_code, self):
-            print("Recipient is not authorized to hold this token.")
-            return
-            payment = Payment(
-                account=self.address,
-                destination=recipient.address,
-                amount=IssuedCurrencyAmount(
-                    currency=currency_code,
-                    issuer=self.address,
-                    value=str(amount)
-                )
-            )
-
-            response = submit_and_wait(payment, client, self.wallet)
-
-            if response.is_successful():
-                print("Token sent.")
-            else:
-                print("Failed to sent token.")
-
-    def enable_deposit_auth(self):
-        tx = AccountSet(
-            account=self.address,
-            set_flag=AccountSetFlag.ASF_DEPOSIT_AUTH
-        )
-
-        response = submit_and_wait(tx, client, self.wallet)
-
-        if response.is_successful():
-            print(f"{self.username}: DepositAuth enabled.")
-
-    def authorize_xrp_sender(self, sender_account):
-        tx = DepositPreauth(
-            account=self.address,
-            authorize=sender_account.address
-        )
-
-        response = submit_and_wait(tx, client, self.wallet)
-
-        if response.is_successful():
-            print(f"{sender_account.username} can now send XRP to {self.username}")
-    def create_offer_buy_xrp(self, aud_amount, xrp_amount, issuer_wallet):
-            offer = OfferCreate(
-                account=self.address,
-
-                taker_pays=IssuedCurrencyAmount(
-                    currency="AUD",
-                    issuer=issuer_wallet.address,
-                    value=str(aud_amount)
-                ),
-
-                taker_gets=xrp_to_drops(xrp_amount)
-            )
-
-            response = submit_and_wait(offer, client, self.wallet)
-
-            if response.is_successful():
-                print("Offer successfully placed on DEX.")
-            else:
-                print("Offer failed.")
-
-    def create_offer_sell_xrp(self, xrp_amount, aud_amount, issuer_wallet):
-        offer = OfferCreate(
-            account=self.address,
-
-            taker_pays=xrp_to_drops(xrp_amount),
-
-            taker_gets=IssuedCurrencyAmount(
-                currency="AUD",
-                issuer=issuer_wallet.address,
-                value=str(aud_amount)
-            )
-        )
-
-        response = submit_and_wait(offer, client, self.wallet)
-
-        if response.is_successful():
-            print("Sell offer successfully placed.")
-        else:
-            print("Offer failed.")
-
-    def build_amount(self, currency, value, issuer=None):
-
-            # Returns correct XRPL amount format depending on XRP or token
-
-
-            if currency.upper() == "XRP":
-                return xrp_to_drops(value)
-
-            return IssuedCurrencyAmount(
                 currency=currency,
                 issuer=issuer.address,
-                value=str(value)
+                value=str(limit)
             )
-
-    def can_hold_currency(self, currency, issuer):
-
-        if currency.upper() == "XRP":
-            return True
-
-        request = AccountLines(
-            account=self.address,
-            ledger_index="validated"
         )
 
-        response = client.request(request)
+        response = submit_and_wait(tx, client, self.wallet)
 
-        for line in response.result.get("lines", []):
+        if response.is_successful():
+            print(f"{self.username}: Trustline created for {currency}")
+        else:
+            print(f"{self.username}: Trustline failed")
 
-            if (
-                    line["currency"] == currency and
-                    line["account"] == issuer.address and
-                    line.get("authorized", False)
-            ):
-                return True
+    def send_token(self, currency, amount, destination):
 
-        return False
+        tx = Payment(
+            account=self.address,
+            destination=destination.address,
+            amount=IssuedCurrencyAmount(
+                currency=currency,
+                issuer=self.address,
+                value=str(amount)
+            )
+        )
 
-    def get_token_balance(self, currency, issuer=None):
+        response = submit_and_wait(tx, client, self.wallet)
 
-        if currency.upper() == "XRP":
-            return self.get_account_balance()
+        if response.is_successful():
+            print(f"{self.username} sent {amount} {currency} to {destination.username}")
+        else:
+            print("Token send failed")
+
+
+    def get_token_balance(self, currency, issuer):
 
         request = AccountLines(
             account=self.address,
@@ -261,47 +107,55 @@ class XRPAccount():
         return 0.0
 
     def create_offer(
-            self,
-            pay_currency,
-            pay_amount,
-            get_currency,
-            get_amount,
-            pay_issuer=None,
-            get_issuer=None
+        self,
+        pay_currency,
+        pay_amount,
+        get_currency,
+        get_amount,
+        pay_issuer=None,
+        get_issuer=None
     ):
 
-        # Check holding permissions
-        if not self.can_hold_currency(get_currency, get_issuer):
-            print(f"Not authorized to hold {get_currency}")
-            return
+        if pay_currency == "XRP":
+            taker_pays = xrp_to_drops(pay_amount)
+        else:
+            taker_pays = IssuedCurrencyAmount(
+                currency=pay_currency,
+                issuer=pay_issuer.address,
+                value=str(pay_amount)
+            )
 
-        # Check balance
-        balance = self.get_token_balance(pay_currency, pay_issuer)
+        if get_currency == "XRP":
+            taker_gets = xrp_to_drops(get_amount)
+        else:
+            taker_gets = IssuedCurrencyAmount(
+                currency=get_currency,
+                issuer=get_issuer.address,
+                value=str(get_amount)
+            )
 
-        if balance < pay_amount:
-            print(f"Insufficient balance. You have {balance} {pay_currency}")
-            return
-
-        taker_pays = self.build_amount(pay_currency, pay_amount, pay_issuer)
-        taker_gets = self.build_amount(get_currency, get_amount, get_issuer)
-
-        offer = OfferCreate(
+        tx = OfferCreate(
             account=self.address,
             taker_pays=taker_pays,
             taker_gets=taker_gets
         )
 
-        response = submit_and_wait(offer, client, self.wallet)
+        response = submit_and_wait(tx, client, self.wallet)
 
         if response.is_successful():
-            print(f"Offer created: Pay {pay_amount} {pay_currency} "
-                  f"to get {get_amount} {get_currency}")
+            print(
+                f"{self.username} created offer: "
+                f"Pay {pay_amount} {pay_currency} "
+                f"for {get_amount} {get_currency}"
+            )
         else:
             print("Offer failed")
 
-    def get_all_holdings(self):
+    def print_holdings(self):
 
-        holdings = {"XRP": self.get_account_balance()}
+        print(f"\n{self.username} holdings:")
+
+        print("XRP:", self.get_xrp_balance())
 
         request = AccountLines(
             account=self.address,
@@ -311,107 +165,54 @@ class XRPAccount():
         response = client.request(request)
 
         for line in response.result.get("lines", []):
-            currency = line["currency"]
-            balance = float(line["balance"])
-            issuer = line["account"]
+            print(
+                f"{line['currency']} issued by {line['account']}: "
+                f"{line['balance']}"
+            )
 
-            holdings[f"{currency}:{issuer}"] = balance
-
-        return holdings
-    def print_all_holdings(self):
-        holdings = self.get_all_holdings()
-
-        print("You can sell:")
-        for asset, balance in holdings.items():
-            print(asset, balance)
 
 # standard account will always have 100 xrp
-# Create accounts
-issuer = XRPAccount("CentralBank")
+# ============================
+# CREATE ACCOUNTS
+# ============================
+
+issuer = XRPAccount("Issuer")
 alice = XRPAccount("Alice")
 bob = XRPAccount("Bob")
 
-print("\n=== Initial XRP balances ===")
-print("Issuer:", issuer.get_account_balance())
-print("Alice:", alice.get_account_balance())
-print("Bob:", bob.get_account_balance())
+print("\nInitial XRP balances:")
+print("Issuer:", issuer.get_xrp_balance())
+print("Alice:", alice.get_xrp_balance())
+print("Bob:", bob.get_xrp_balance())
 
 
-# -------------------------------------------------
-# STEP 1 — ISSUER LOCKS TOKEN WITH REQUIREAUTH
-# -------------------------------------------------
+# ============================
+# CREATE TRUSTLINES
+# ============================
 
-print("\n=== Issuer enables RequireAuth ===")
-issuer.enable_require_auth()
-
-
-# -------------------------------------------------
-# STEP 2 — USERS OPEN TRUSTLINES (REQUEST PERMISSION)
-# -------------------------------------------------
-
-print("\n=== Alice and Bob request trustlines ===")
-
-alice.create_TrustSet("AUD", "10000", issuer)
-bob.create_TrustSet("AUD", "10000", issuer)
-
-alice.check_TrustSet()
-bob.check_TrustSet()
+alice.create_trustline("AUD", issuer, 10000)
+bob.create_trustline("AUD", issuer, 10000)
 
 
-# -------------------------------------------------
-# STEP 3 — ISSUER AUTHORIZES USERS (GRANTS PERMISSION)
-# -------------------------------------------------
-
-print("\n=== Issuer authorizes Alice only ===")
-
-issuer.authorize_trustline("AUD", alice)
-
-# Bob is intentionally NOT authorized
-
-
-# -------------------------------------------------
-# STEP 4 — ISSUER ISSUES TOKENS
-# -------------------------------------------------
-
-print("\n=== Issuer sends AUD tokens ===")
+# ============================
+# ISSUE TOKENS
+# ============================
 
 issuer.send_token("AUD", 5000, alice)
-
-# This should fail if attempted:
-# issuer.send_token("AUD", 5000, bob)
+issuer.send_token("AUD", 2000, bob)
 
 
-# -------------------------------------------------
-# STEP 5 — ENABLE XRP RECEIVE CONSENT (DEPOSITAUTH)
-# -------------------------------------------------
-
-print("\n=== Alice enables DepositAuth (XRP consent required) ===")
-
-alice.enable_deposit_auth()
-
-print("\nTrying to send XRP without authorization (should fail):")
+# ============================
+# SEND XRP
+# ============================
 
 issuer.send_xrp(10, alice)
 
 
-# -------------------------------------------------
-# STEP 6 — ALICE AUTHORIZES ISSUER TO SEND XRP
-# -------------------------------------------------
-
-print("\n=== Alice authorizes issuer to send XRP ===")
-
-alice.authorize_xrp_sender(issuer)
-
-print("\nSending XRP again (should succeed):")
-
-issuer.send_xrp(10, alice)
-
-
-# -------------------------------------------------
-# STEP 7 — ALICE TRADES ON DEX
-# -------------------------------------------------
-
-print("\n=== Alice creates DEX offer ===")
+# ============================
+# CREATE DEX OFFER
+# Alice sells AUD for XRP
+# ============================
 
 alice.create_offer(
     pay_currency="AUD",
@@ -422,26 +223,10 @@ alice.create_offer(
 )
 
 
-# -------------------------------------------------
-# STEP 8 — VIEW FINAL HOLDINGS
-# -------------------------------------------------
+# ============================
+# FINAL HOLDINGS
+# ============================
 
-print("\n=== Final Holdings ===")
-
-print("\nIssuer holdings:")
-issuer.print_all_holdings()
-
-print("\nAlice holdings:")
-alice.print_all_holdings()
-
-print("\nBob holdings:")
-bob.print_all_holdings()
-
-
-
-
-
-
-
-
-
+issuer.print_holdings()
+alice.print_holdings()
+bob.print_holdings()
