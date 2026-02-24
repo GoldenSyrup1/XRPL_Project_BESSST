@@ -187,7 +187,7 @@ print("Bob:", bob.get_xrp_balance())
 
 
 # ============================
-# CREATE TRUSTLINES
+# CREATE TRUSTLINE
 # ============================
 
 alice.create_trustline("AUD", issuer, 10000)
