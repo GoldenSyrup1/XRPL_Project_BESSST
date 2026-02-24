@@ -18,12 +18,15 @@ from xrpl.models.amounts import IssuedCurrencyAmount
 client = JsonRpcClient("https://s.altnet.rippletest.net:51234")
 
 class XRPAccount():
+    registry = {}  # address -> XRPAccount object
     def __init__(self, username):
         self.username = username
         self.wallet = Wallet.create()
         self.address = self.wallet.classic_address
 
         # Fund account with 100 Test XRP
+        # Register automatically
+        XRPAccount.registry[self.address] = self
         generate_faucet_wallet(client=client, wallet=self.wallet)
 
     def get_xrp_balance(self):
@@ -165,10 +168,14 @@ class XRPAccount():
         response = client.request(request)
 
         for line in response.result.get("lines", []):
-            print(
-                f"{line['currency']} issued by {line['account']}: "
-                f"{line['balance']}"
-            )
+            issuer_address = line["account"]
+
+            # Instant lookup
+            issuer = XRPAccount.registry.get(issuer_address)
+
+            issuer_name = issuer.username if issuer else issuer_address
+
+            print(f"{line['currency']} issued by {issuer_name}: {line['balance']}")
 
 
 # standard account will always have 100 xrp
