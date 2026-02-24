@@ -180,7 +180,7 @@ issuer = XRPAccount("Issuer")
 alice = XRPAccount("Alice")
 bob = XRPAccount("Bob")
 
-print("\nInitial XRP balances:")
+print("\nInitial XRP balances: ")
 print("Issuer:", issuer.get_xrp_balance())
 print("Alice:", alice.get_xrp_balance())
 print("Bob:", bob.get_xrp_balance())
