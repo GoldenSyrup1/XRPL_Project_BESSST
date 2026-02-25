@@ -1,29 +1,24 @@
-import xrpl
 from xrpl.clients import JsonRpcClient
-from xrpl.core.keypairs import generate_seed, derive_keypair
-from xrpl.account import get_balance
-from xrpl.wallet import Wallet, generate_faucet_wallet
-from xrpl.transaction import submit_and_wait
-from xrpl.models import Payment, Tx
-from xrpl.models.requests import AccountInfo, AccountLines
-
-from xrpl.utils import xrp_to_drops
-from xrpl.models.transactions import TrustSet, OfferCreate, AccountSet, DepositPreauth, TrustSetFlag
-from xrpl.models.transactions.account_set import AccountSetAsfFlag
+from xrpl.models import Payment
 from xrpl.models.amounts import IssuedCurrencyAmount
-
-
-
+from xrpl.models.requests import AccountInfo, AccountLines
+from xrpl.models.transactions import NFTokenMint
+from xrpl.models.transactions import TrustSet, OfferCreate
+from xrpl.transaction import submit_and_wait
+from xrpl.utils import str_to_hex
+from xrpl.utils import xrp_to_drops
+from xrpl.wallet import Wallet, generate_faucet_wallet
+import uuid
 # Connecting to TestNet
 client = JsonRpcClient("https://s.altnet.rippletest.net:51234")
 
-class XRPAccount():
+class XRPAccount:
     registry = {}  # address -> XRPAccount object
     def __init__(self, username):
         self.username = username
         self.wallet = Wallet.create()
         self.address = self.wallet.classic_address
-
+        self.nft_uri = str_to_hex(f"urn:uuid:{uuid.uuid4()}")
         # Fund account with 100 Test XRP
         # Register automatically
         XRPAccount.registry[self.address] = self
@@ -93,7 +88,25 @@ class XRPAccount():
         else:
             print("Token send failed")
 
-
+    def create_nft_xrp_token(self, royalty):
+        if royalty > 50000:
+            royalty = 50000
+        mint = NFTokenMint(
+        account=self.address,
+        uri=self.nft_uri,
+        nftoken_taxon=0,
+        transfer_fee=royalty,
+        flags=8
+    )
+        # deducts 0.2 xrp for setting up nft
+        response = submit_and_wait(mint, client, self.wallet)
+        if response.is_successful():
+            print(f"{self.username} has created an NFT.")
+        else:
+            print("NFT Token creation failed.")
+    def create_offer_nft(self, buyer_of_nft, xrp_amount):
+        
+        return
     def get_token_balance(self, currency, issuer):
 
         request = AccountLines(
