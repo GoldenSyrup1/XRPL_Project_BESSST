@@ -190,7 +190,7 @@ class XRPAccount:
 
             print(f"{line['currency']} issued by {issuer_name}: {line['balance']}")
 
-
+#
 # standard account will always have 100 xrp
 # ============================
 # CREATE ACCOUNTS
@@ -210,43 +210,43 @@ print("Bob:", bob.get_xrp_balance())
 # CREATE TRUSTLINE
 # ============================
 
-alice.create_trustline("AUD", issuer, 10000)
-bob.create_trustline("AUD", issuer, 10000)
-
-
-# ============================
-# ISSUE TOKENS
-# ============================
-
-issuer.send_token("AUD", 5000, alice)
-issuer.send_token("AUD", 2000, bob)
-
-
-# ============================
-# SEND XRP
-# ============================
-
-issuer.send_xrp(10, alice)
-
-
-# ============================
-# CREATE DEX OFFER
-# Alice sells AUD for XRP
-# ============================
-
-alice.create_offer(
-    pay_currency="AUD",
-    pay_amount=1000,
-    get_currency="XRP",
-    get_amount=500,
-    pay_issuer=issuer
-)
-
-
-# ============================
-# FINAL HOLDINGS
-# ============================
-
-issuer.print_holdings()
-alice.print_holdings()
-bob.print_holdings()
+# alice.create_trustline("AUD", issuer, 10000)
+# bob.create_trustline("AUD", issuer, 10000)
+#
+#
+# # ============================
+# # ISSUE TOKENS
+# # ============================
+#
+# issuer.send_token("AUD", 5000, alice)
+# issuer.send_token("AUD", 2000, bob)
+#
+#
+# # ============================
+# # SEND XRP
+# # ============================
+#
+# issuer.send_xrp(10, alice)
+#
+#
+# # ============================
+# # CREATE DEX OFFER
+# # Alice sells AUD for XRP
+# # ============================
+#
+# alice.create_offer(
+#     pay_currency="AUD",
+#     pay_amount=1000,
+#     get_currency="XRP",
+#     get_amount=500,
+#     pay_issuer=issuer
+# )
+#
+#
+# # ============================
+# # FINAL HOLDINGS
+# # ============================
+#
+# issuer.print_holdings()
+# alice.print_holdings()
+# bob.print_holdings()
