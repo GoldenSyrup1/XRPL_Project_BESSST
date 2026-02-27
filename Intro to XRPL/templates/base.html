@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mandla XRPL</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<div class="navbar">
+    <div><strong>Mandla XRPL</strong></div>
+    <div>
+        <a href="C:\Users\srira\PycharmProjects\XRPLProject\Intro to XRPL\templates\register.html">Register</a>
+        <a href="C:\Users\srira\PycharmProjects\XRPLProject\Intro to XRPL\templates\upload.html">Mint NFT</a>
+    </div>
+</div>
+
+{% block content %}{% endblock %}
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

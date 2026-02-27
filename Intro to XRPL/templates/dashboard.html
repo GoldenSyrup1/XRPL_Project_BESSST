@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="dashboard-container">
+
+    <div class="balance-box">
+        <h2>{{ user.phone }}'s Wallet</h2>
+        <p><strong>XRP Balance:</strong> {{ xrp_balance }}</p>
+    </div>
+
+    <div class="balance-box">
+        <h3>Send XRP</h3>
+        <form method="POST" action="{{ url_for('send_xrp_route') }}">
+            <input type="hidden" name="from_phone" value="{{ user.phone }}">
+            <input type="text" name="to_phone" placeholder="Recipient Phone" required>
+            <input type="number" step="0.000001" name="amount" placeholder="Amount" required>
+            <button type="submit">Send XRP</button>
+        </form>
+    </div>
+
+    <h2>Your NFTs</h2>
+
+    <div class="nft-grid">
+        {% for nft in nfts %}
+        <div class="nft-card">
+            <img src="/{{ nft.image_path }}">
+            <p style="font-size:12px;">{{ nft.nft_id }}</p>
+        </div>
+        {% endfor %}
+    </div>
+
+</div>
+
+{% endblock %}
