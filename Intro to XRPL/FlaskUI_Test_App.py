@@ -6,7 +6,7 @@ from FlaskUI_Test_Models import db, User, NFT
 from SecondXRPL import XRPAccount
 from xrpl.clients import JsonRpcClient
 from xrpl.models.requests import AccountLines
-
+from flask import session
 app = Flask(__name__)
 
 # XRPL client
@@ -120,6 +120,22 @@ def upload():
 
     return render_template('upload.html')
 
+@app.route('/send_xrp', methods=['POST'])
+def send_xrp_route():
+    from_phone = request.form['from_phone']
+    to_phone = request.form['to_phone']
+    amount = float(request.form['amount'])
+
+    sender = get_account_by_phone(from_phone)
+    receiver = get_account_by_phone(to_phone)
+
+    if sender and receiver:
+        sender.send_xrp(amount, receiver)
+        flash("Transaction successful!")
+    else:
+        flash("Transaction failed.")
+
+    return redirect(url_for('dashboard', phone=from_phone))
 
 @app.route('/create_offer', methods=['POST'])
 def create_offer():

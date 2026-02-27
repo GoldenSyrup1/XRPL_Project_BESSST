@@ -1,23 +1,33 @@
 {% extends "base.html" %}
 {% block content %}
+
 <div class="container">
+
     <div class="card">
+
         <h1>Mint NFT</h1>
 
-        {% with messages = get_flashed_messages() %}
-        {% if messages %}
-            {% for message in messages %}
-                <div class="flash">{{ message }}</div>
-            {% endfor %}
-        {% endif %}
-        {% endwith %}
-
         <form method="POST" enctype="multipart/form-data">
-            <input type="text" name="phone" placeholder="Phone Number" required>
-            <input type="file" name="image" onchange="previewImage(event)" required>
-            <img id="preview" style="display:none; width:100%; margin-bottom:20px; border-radius:8px;" />
+
+            <input type="text"
+                   name="phone"
+                   placeholder="Phone Number"
+                   required>
+
+            <input type="file"
+                   name="image"
+                   onchange="previewImage(event)"
+                   required>
+
+            <img id="preview"
+                 style="display:none; width:100%; margin-bottom:20px; border-radius:8px;" />
+
             <button type="submit">Mint NFT</button>
+
         </form>
+
     </div>
+
 </div>
+
 {% endblock %}
