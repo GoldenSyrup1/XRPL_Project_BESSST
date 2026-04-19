@@ -83,6 +83,7 @@ def register():
             db.session.commit()
 
         flash("Registration successful!")
+        session['phone'] = phone
         return redirect(url_for('dashboard', phone=phone))
 
     return render_template('register.html')
@@ -101,7 +102,7 @@ def upload():
         filename = secure_filename(file.filename)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(filepath)
-
+        session['phone'] = phone
         # Mint NFT
         nft_uri = mint_nft(filepath, phone)
 
@@ -116,6 +117,7 @@ def upload():
         db.session.commit()
 
         flash(f"NFT minted! URI: {nft_uri}")
+
         return redirect(url_for('dashboard', phone=phone))
 
     return render_template('upload.html')
